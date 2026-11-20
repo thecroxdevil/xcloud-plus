@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         xCloud Plus (for play.xbox.com)
 // @namespace    charles.xcloud-plus
-// @version      1.2.2
+// @version      1.2.3
 // @description  Better xCloud-style features for the new Xbox Cloud Gaming site: resolution, codec, bitrate cap, server region, IPv6, stats overlay, sharpening/video adjust, audio boost, screenshot, tracking block. Logic adapted from Better xCloud (MIT, redphx).
 // @match        https://play.xbox.com/*
 // @run-at       document-start
@@ -17,7 +17,7 @@
 "use strict";
 (() => {
   if (window.__XCLOUD_PLUS__) return;
-  window.__XCLOUD_PLUS__ = "1.2.2";
+  window.__XCLOUD_PLUS__ = "1.2.3";
 
   const TAG = "[xCloudPlus]";
   const log = (...a) => console.log(`%c${TAG}`, "color:#107c10;font-weight:bold", ...a);
@@ -443,6 +443,12 @@
     def("buttons", () => MKB.buttons.map((v) => ({ pressed: v > 0.1, touched: v > 0, value: v })));
     return pad;
   }
+
+  // On Chrome with `gamepadrawinputchanged` support, the stream engine (WebRtcStreamV1 InputManager)
+  // switches to event-driven input and never calls getGamepads() during play, so the virtual pad is
+  // invisible in-game. Hiding the handler property makes it fall back to polling getGamepads() (~4 ms).
+  // It is an own, configurable property of window; it must be removed before the stream starts.
+  try { if ("ongamepadrawinputchanged" in window) delete window.ongamepadrawinputchanged; } catch (e) {}
 
   const nativeGetGamepads = navigator.getGamepads ? navigator.getGamepads.bind(navigator) : () => [];
   navigator.getGamepads = function () {
