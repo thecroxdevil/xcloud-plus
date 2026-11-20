@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         xCloud Plus (for play.xbox.com)
 // @namespace    charles.xcloud-plus
-// @version      1.2.1
+// @version      1.2.2
 // @description  Better xCloud-style features for the new Xbox Cloud Gaming site: resolution, codec, bitrate cap, server region, IPv6, stats overlay, sharpening/video adjust, audio boost, screenshot, tracking block. Logic adapted from Better xCloud (MIT, redphx).
 // @match        https://play.xbox.com/*
 // @run-at       document-start
@@ -17,7 +17,7 @@
 "use strict";
 (() => {
   if (window.__XCLOUD_PLUS__) return;
-  window.__XCLOUD_PLUS__ = "1.2.1";
+  window.__XCLOUD_PLUS__ = "1.2.2";
 
   const TAG = "[xCloudPlus]";
   const log = (...a) => console.log(`%c${TAG}`, "color:#107c10;font-weight:bold", ...a);
@@ -152,10 +152,15 @@
     if (isBlocked(url)) return Promise.resolve(new Response(null, { status: 204 }));
     try {
       if (url.includes("gssv-play-prod") || url.includes("xhome.gssv")) {
-        const req = new Request(input, init);
-        if (url.endsWith("/v2/login/user")) return handleLogin(req);
-        if (/\/sessions\/cloud\/play$/.test(url) && req.method === "POST") return handlePlay(req);
-        if (/\/sessions\/.+\/ice$/.test(url) && req.method === "GET") return handleIce(req);
+        // Pick the route BEFORE building a Request: new Request(input) consumes input's body,
+        // so any request we pass through afterwards would fail ("Request object already used").
+        const method = String((init && init.method) || (input instanceof Request ? input.method : "GET")).toUpperCase();
+        const path = url.split("?")[0];
+        let handler = null;
+        if (path.endsWith("/v2/login/user")) handler = handleLogin;
+        else if (/\/sessions\/cloud\/play$/.test(path) && method === "POST") handler = handlePlay;
+        else if (/\/sessions\/.+\/ice$/.test(path) && method === "GET") handler = handleIce;
+        if (handler) return handler(new Request(input, init));
       }
     } catch (e) { warn("fetch hook error", e); }
     return NATIVE_FETCH.apply(this, arguments);
